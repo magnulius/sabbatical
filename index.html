@@ -2180,6 +2180,7 @@
         color: var(--muted);
         border: 1px solid var(--line);
       }
+      .share-note .goto,
       .summary .goto,
       .status-sub .goto {
         border: 0;
@@ -2621,7 +2622,7 @@
               </details>
               <div class="calc" id="calc-1"></div>
               <div class="fixed-actions">
-                <button type="button" class="btn primary" id="btn-fixed-ok">Werte bestätigen</button
+                <button type="button" class="btn primary" id="btn-fixed-ok">Fertig</button
                 ><span class="msg" id="fixed-msg"></span>
               </div>
             </div>
@@ -2662,7 +2663,7 @@
                     autocomplete="off"
                   /><span class="unit">Arbeitstage</span>
                 </div>
-                <div class="msg" id="f-vacDays-msg">Nur die Anzahl zählt.</div>
+                <div class="msg" id="f-vacDays-msg">Optional. Nur die Anzahl zählt.</div>
                 <div class="info-text" id="i-vac" hidden>
                   An Urlaubstagen wird nicht gearbeitet, also auch nichts angespart. Wann du den Urlaub
                   nimmst, spielt keine Rolle.
@@ -2690,7 +2691,7 @@
                     autocomplete="off"
                   /><span class="unit">Arbeitstage</span>
                 </div>
-                <div class="msg" id="f-sick-msg">Reserve für Krankheit.</div>
+                <div class="msg" id="f-sick-msg">Optional, empfohlen: etwa 5 Tage Reserve.</div>
                 <div class="info-text" id="i-sick" hidden>
                   Krankheitstage kennst du vorher nicht. Diese Tage werden vorsorglich von den Anspartagen
                   abgezogen, damit dein Guthaben trotzdem reicht.
@@ -2733,7 +2734,7 @@
                   autocomplete="off"
                 /><span class="unit">Arbeitstage</span>
               </div>
-              <div class="msg" id="f-transDays-msg"></div>
+              <div class="msg" id="f-transDays-msg">Optional. 0, wenn der FZA direkt anschließt.</div>
             </div>
             <div id="df-sabStart"></div>
             <div class="calc" id="calc-3"></div>
@@ -3047,7 +3048,7 @@
             toastMs: 10000,
             daysPerMonth: 30.4375, // Durchschnitt für die Monatsangabe
             storageKey: "sabbatical-planer-v1",
-            schemaVersion: 2, // Aufbau des gespeicherten Stands; bei Änderungen erhöhen und migrate() ergänzen
+            schemaVersion: 3, // Aufbau des gespeicherten Stands; bei Änderungen erhöhen und migrate() ergänzen
           };
           const DAY = 86400000;
           const MONTHS = [
@@ -3224,10 +3225,10 @@
               reduced: 10,
               asStart: EXD.asStart,
               asEnd: EXD.asEnd,
-              vacDays: 5,
-              sick: 5,
+              vacDays: 0,
+              sick: 0,
               transMode: "auto",
-              transDays: 5,
+              transDays: 0,
               sabStart: EXD.sabStart,
               sabLen: "3",
               sabEnd: EXD.sabEnd,
@@ -3236,7 +3237,9 @@
               fixedDone: false,
             };
           }
-          const EXKEYS = ["hours", "wage", "reduced", "asStart", "asEnd", "vacDays", "sick", "transDays"];
+          // Pflichtwerte ohne sinnvollen Standard: werden nur als Platzhalter gezeigt, bis sie selbst eingegeben sind.
+          // Urlaub, Krankheitspuffer und Übergangsurlaub sind optional und starten mit 0.
+          const EXKEYS = ["hours", "wage", "reduced", "asStart", "asEnd"];
 
           function clone(o) {
             return JSON.parse(JSON.stringify(o));
@@ -3718,6 +3721,11 @@
             });
             if (!o.sabStartTouched && o.transMode !== "manual") o.sabStart = defaults.sabStart;
             if (o.sabLen !== "date") o.sabEnd = defaults.sabEnd;
+            // Version 2 -> 3: Urlaub, Krankheitspuffer, Übergang waren Beispielwerte (5); nie eingegeben heißt jetzt 0
+            if ((o.schema || 1) < 3)
+              ["vacDays", "sick", "transDays"].forEach((k) => {
+                if (!o.touched[k] && o[k] === 5) o[k] = 0;
+              });
             o.schema = CONFIG.schemaVersion;
             return Object.assign(clone(defaults), o);
           }
@@ -4310,8 +4318,7 @@
           const m = $("#sc-msg");
           m.classList.remove("err");
           if (isDemo()) {
-            m.textContent =
-              "Speichern geht, sobald alle Werte von dir stammen und die festen Werte bestätigt sind.";
+            m.textContent = "Speichern geht, sobald alle Pflichtwerte von dir stammen.";
             m.classList.add("err");
             return;
           }
@@ -4481,8 +4488,16 @@
           }
         }
 
+        /* Offene Pflichtangaben als anklickbare Liste */
+        function openItemsHtml() {
+          const goto = (id, t) => `<button type="button" class="goto" data-focus="${id}">${t}</button>`;
+          return exampleKeys()
+            .map((k) => goto(FOCUSID[k], EXLABEL[k]))
+            .join(", ");
+        }
+        // Beispielrechnung, solange noch ein Pflichtwert fehlt. „Werte bestätigen“ klappt nur zusammen und ist keine Bedingung.
         function isDemo() {
-          return !plan.fixedDone || exampleKeys().length > 0;
+          return exampleKeys().length > 0;
         }
         function exampleKeys() {
           const t = plan.touched || {};
@@ -5291,28 +5306,8 @@
                 : ok
                   ? "Plan geht auf"
                   : "Guthaben reicht nicht";
-            const openK = exampleKeys();
-            const goto = (id, t) => `<button type="button" class="goto" data-focus="${id}">${t}</button>`;
             const sub = demo
-              ? "Mit Beispielwerten. Noch offen: " +
-                [
-                  ...(plan.fixedDone
-                    ? []
-                    : [
-                        goto(
-                          plan.touched && plan.touched.hours && plan.touched.wage
-                            ? "btn-fixed-ok"
-                            : !(plan.touched || {}).hours
-                              ? "f-hours"
-                              : "f-wage",
-                          "feste Werte",
-                        ),
-                      ]),
-                  ...openK
-                    .filter((k) => plan.fixedDone || !["hours", "wage"].includes(k))
-                    .map((k) => goto(FOCUSID[k], EXLABEL[k])),
-                ].join(", ") +
-                "."
+              ? "Mit Beispielwerten. Noch offen: " + openItemsHtml() + "."
               : firstError
                 ? esc(firstError.m)
                 : (r.saldo >= 0 ? "Puffer " : "Es fehlen ") +
@@ -5418,7 +5413,7 @@
             o +=
               `<div class="res-actions"><button type="button" class="btn" id="btn-copy"${dis}>${ic("copy")}Zusammenfassung kopieren</button><button type="button" class="btn" id="btn-link"${dis}>${ic("link")}Link zur Planung kopieren</button></div>` +
               (dm
-                ? `<p class="share-note" id="share-lock">${ic("info")}<span>Kopieren und Teilen geht, sobald alle Werte von dir stammen und deine festen Werte bestätigt sind.</span></p>`
+                ? `<p class="share-note" id="share-lock">${ic("info")}<span>Kopieren und Teilen geht, sobald alle Pflichtwerte von dir stammen. Noch offen: ${openItemsHtml()}.</span></p>`
                 : `<p class="share-note">${ic("alertTriangle")}<span>Der Link enthält alle Werte, auch deinen Stundenlohn. Daraus lässt sich dein Gehalt ableiten. Teile ihn nur mit Personen, die das sehen dürfen.</span></p>`) +
               `<div id="copy-box"></div>`;
           }
@@ -5493,10 +5488,7 @@
             {
               id: "fixed",
               name: "Feste Werte",
-              items: mk(
-                ["hours", "wage"],
-                plan.fixedDone ? [] : [{ k: "ok", label: "feste Werte bestätigen", id: "btn-fixed-ok" }],
-              ),
+              items: mk(["hours", "wage"]),
             },
             {
               id: "step-as",
@@ -6132,7 +6124,10 @@
         /* „Ausrechnen“ / „Selbst eingeben“ umschalten */
         function onSolveToggle(b, e) {
           if (b.disabled) return;
+          const before = plan.solve;
           plan.solve = b.dataset.solve;
+          // Wer vom Ausrechnen zurück zur eigenen Eingabe wechselt, übernimmt den berechneten Wert
+          if (plan.solve === "none" && before && before !== "none") touch(before);
           changed();
         }
         /* Info-Text auf- und zuklappen */
