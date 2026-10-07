@@ -23,7 +23,7 @@ Ein Planungstool für einen Freizeitausgleich (FZA), umgangssprachlich Sabbatica
 2. **Guthaben pro Anspartag** = (vertragliche − bezahlte Wochenstunden) ÷ Arbeitstage pro Woche
 3. **Anspartage** = Arbeitstage der Ansparphase − Feiertage − 24.12./31.12. − Urlaub − Krankheitspuffer
 4. **Angespartes Guthaben** = Anspartage × Guthaben pro Anspartag
-5. **Saldo** = angespartes − benötigtes Guthaben
+5. **Saldo** = angespartes − benötigtes Guthaben. Ein positiver Saldo wird nach dem FZA ausgezahlt: Saldo × Stundenlohn
 6. **Gehaltsuntergrenze:** bezahlte Wochenstunden × 4,33 × Stundenlohn muss in der Ansparphase und im FZA jeweils mindestens 633 € pro Monat ergeben
 
 In der Ansparphase wird so weit reduziert, dass ein Guthaben X entsteht. Dieses Guthaben wird im FZA verteilt: Je weniger bezahlte Wochenstunden im FZA, desto mehr Tage reicht X.
@@ -32,7 +32,7 @@ In der Ansparphase wird so weit reduziert, dass ein Guthaben X entsteht. Dieses 
 
 - Gesetzliche Feiertage in Berlin, berechnet für das aktuelle Jahr und die zehn folgenden Jahre
 - Heiligabend und Silvester sind halbe Arbeitstage. Sie werden nicht als Anspartage gezählt, um konservativ zu planen.
-- Der FZA dauert höchstens 3 Kalendermonate.
+- Der FZA dauert höchstens 3 Kalendermonate, auch wenn das Guthaben länger reichen würde. Übriges Guthaben wird nach dem FZA ausgezahlt (Stunden × Stundenlohn, brutto).
 - Beispieldaten werden aus dem aktuellen Datum des Browsers berechnet und liegen immer in der Zukunft.
 
 ## Datenschutz
