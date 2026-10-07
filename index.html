@@ -2760,7 +2760,10 @@
             </div>
             <div class="info-text" id="i-fza" hidden>
               Gezählt werden die Wochen des FZA, berechnet als Kalendertage / 7. Die tatsächliche Zahl der
-              Werktage ist irrelevant.
+              Werktage ist irrelevant. Jede FZA-Woche verbraucht so viele Stunden Guthaben, wie du im FZA
+              bezahlt bekommst. Weniger bezahlte Stunden im FZA verteilen dein Guthaben auf mehr Tage. Im FZA
+              müssen mindestens 633 € im Monat ausgezahlt werden. Der FZA dauert höchstens 3 Kalendermonate,
+              auch wenn das Guthaben länger reichen würde. Übriges Guthaben wird danach ausgezahlt.
             </div>
             <div class="field">
               <div class="lbl-row">
@@ -2783,14 +2786,14 @@
 
         <aside class="result" aria-labelledby="res-h">
           <div class="knob" id="knob">
-            <div class="knob-h">
-              <span class="panel-tag">Deine Stellschraube</span
-              ><button type="button" class="linkbtn" data-solve="reduced" id="sl-reduced">
-                Für mich ausrechnen
-              </button>
-            </div>
+            <div class="knob-h"><span class="panel-tag">Deine Stellschrauben</span></div>
             <div class="field">
-              <label class="lbl" for="f-reduced">Bezahlte Wochenstunden in der Ansparphase</label>
+              <div class="lbl-row">
+                <label class="lbl" for="f-reduced">Bezahlte Wochenstunden in der Ansparphase</label
+                ><button type="button" class="linkbtn" data-solve="reduced" id="sl-reduced">
+                  Für mich ausrechnen
+                </button>
+              </div>
               <div class="num w-220">
                 <input
                   id="f-reduced"
@@ -2808,15 +2811,51 @@
                   min="0"
                   max="39"
                   step="0.25"
-                  aria-label="Bezahlte Wochenstunden mit Schieberegler einstellen"
+                  aria-label="Bezahlte Wochenstunden in der Ansparphase mit Schieberegler einstellen"
                 />
-                <div class="slider-zone" id="slider-zone">
-                  <span class="tick" id="slider-tick" hidden></span>
+                <div class="slider-zone" id="slider-zone-reduced">
+                  <span class="tick" id="slider-tick-reduced" hidden></span>
                 </div>
-                <div class="slider-ends" id="slider-ends"></div>
-                <div class="zones" id="zones"></div>
+                <div class="slider-ends" id="slider-ends-reduced"></div>
+                <div class="zones" id="zones-reduced"></div>
               </div>
               <div class="msg" id="f-reduced-msg"></div>
+            </div>
+            <div class="field">
+              <div class="lbl-row">
+                <label class="lbl" for="f-fzaHours">Bezahlte Wochenstunden im FZA</label
+                ><button type="button" class="linkbtn" data-solve="fzaHours" id="sl-fzaHours">
+                  Für mich ausrechnen
+                </button>
+              </div>
+              <div class="num w-220">
+                <input
+                  id="f-fzaHours"
+                  data-key="fzaHours"
+                  data-min="0"
+                  data-max="60"
+                  inputmode="decimal"
+                  autocomplete="off"
+                /><span class="unit">h / Woche</span>
+              </div>
+              <div class="slider">
+                <input
+                  type="range"
+                  id="f-fzaHours-range"
+                  min="0"
+                  max="39"
+                  step="0.25"
+                  aria-label="Bezahlte Wochenstunden im FZA mit Schieberegler einstellen"
+                />
+                <div class="slider-zone" id="slider-zone-fzaHours">
+                  <span class="tick" id="slider-tick-fzaHours" hidden></span>
+                </div>
+                <div class="slider-ends" id="slider-ends-fzaHours"></div>
+                <div class="zones" id="zones-fzaHours"></div>
+              </div>
+              <div class="msg" id="f-fzaHours-msg">
+                Weniger Stunden pro Woche verteilen dein Guthaben auf mehr Tage, bei weniger Gehalt.
+              </div>
             </div>
           </div>
           <div class="panel" id="panel" tabindex="-1" aria-live="polite">
@@ -3048,7 +3087,7 @@
             toastMs: 10000,
             daysPerMonth: 30.4375, // Durchschnitt für die Monatsangabe
             storageKey: "sabbatical-planer-v1",
-            schemaVersion: 3, // Aufbau des gespeicherten Stands; bei Änderungen erhöhen und migrate() ergänzen
+            schemaVersion: 4, // Aufbau des gespeicherten Stands; bei Änderungen erhöhen und migrate() ergänzen
           };
           const DAY = 86400000;
           const MONTHS = [
@@ -3222,7 +3261,8 @@
               wage: 28.5,
               minIncome: CONFIG.minIncome,
               factor: CONFIG.weeksPerMonth,
-              reduced: 10,
+              reduced: 25,
+              fzaHours: 20,
               asStart: EXD.asStart,
               asEnd: EXD.asEnd,
               vacDays: 0,
@@ -3239,7 +3279,7 @@
           }
           // Pflichtwerte ohne sinnvollen Standard: werden nur als Platzhalter gezeigt, bis sie selbst eingegeben sind.
           // Urlaub, Krankheitspuffer und Übergangsurlaub sind optional und starten mit 0.
-          const EXKEYS = ["hours", "wage", "reduced", "asStart", "asEnd"];
+          const EXKEYS = ["hours", "wage", "reduced", "asStart", "asEnd", "fzaHours"];
 
           function clone(o) {
             return JSON.parse(JSON.stringify(o));
@@ -3256,7 +3296,10 @@
               D = plan.workdays.length,
               Rh = plan.reduced,
               w = plan.wage,
-              f = plan.factor;
+              f = plan.factor,
+              // Im FZA bezahlte Wochenstunden: so viel Guthaben wird pro FZA-Woche abgebaut
+              F = plan.fzaHours > 0 ? plan.fzaHours : H;
+            r.F = F;
             r.H = H;
             r.D = D;
             r.Rh = Rh;
@@ -3266,7 +3309,8 @@
             r.minRup = Math.ceil(r.minR * 100) / 100;
             r.perWeek = H - Rh;
             r.perDay = r.perWeek / D;
-            r.hPerCal = H / 7;
+            r.hPerCal = F / 7; // Guthaben-Verbrauch pro Kalendertag im FZA
+            r.fzaMonthly = F * f * w; // Gehalt im FZA
             r.hPerWorkday = H / D;
             r.lossMonthly = r.perWeek * f * w;
             if (Rh >= H)
@@ -3291,6 +3335,31 @@
                   ". Bezahlte Stunden auf mindestens " +
                   nf2.format(r.minRup) +
                   " h erhöhen.",
+              });
+            if (!(plan.fzaHours > 0))
+              r.errors.push({ f: "fzaHours", m: "Bitte die bezahlten Wochenstunden im FZA eingeben." });
+            else if (F > H)
+              r.errors.push({
+                f: "fzaHours",
+                m:
+                  "Im FZA können höchstens die vertraglichen " +
+                  nf1.format(H) +
+                  " h pro Woche bezahlt werden.",
+              });
+            r.fzaBelowMin = r.fzaMonthly < plan.minIncome - 1e-9;
+            if (r.fzaBelowMin)
+              r.errors.push({
+                f: "fzaHours",
+                m:
+                  "Mit " +
+                  nf1.format(F) +
+                  " h pro Woche im FZA bekommst du " +
+                  eur.format(r.fzaMonthly) +
+                  " im Monat. Die Untergrenze liegt bei " +
+                  eur.format(plan.minIncome) +
+                  ". Im FZA mindestens " +
+                  nf2.format(r.minRup) +
+                  " h pro Woche ansetzen.",
               });
             if (r.minR >= H)
               r.errors.push({
@@ -3459,7 +3528,7 @@
             if (r.SS && r.SE) {
               r.cal = diffDays(r.SS, r.SE) + 1;
               r.weeks = r.cal / 7;
-              r.needed = r.weeks * H;
+              r.needed = r.weeks * F; // Wochen im FZA × im FZA bezahlte Wochenstunden
               r.saldo = r.saved - r.needed;
               r.saldoDays = r.saldo / r.hPerWorkday;
               r.freeCal = plan.asEnd ? diffDays(plan.asEnd, r.SE) : r.cal;
@@ -3525,9 +3594,17 @@
               };
               r.latestCur = latest(r.perDay);
               r.latestMax = latest((H - r.minRup) / D);
+              // FZA-Wochenstunden, mit denen das Guthaben den gewählten Zeitraum genau abdeckt
+              r.reqF = r.saved / r.weeks;
+              r.reqFf = Math.floor(r.reqF * 100) / 100;
+              r.reqFOk = r.reqFf >= r.minRup - 1e-9 && r.reqFf <= H + 1e-9;
               r.maxCal = Math.floor(r.saved / r.hPerCal + 1e-9);
               r.endBySaved = r.maxCal > 0 ? addDays(r.SS, r.maxCal - 1) : null;
               if (r.endBySaved && r.endBySaved > r.maxEnd) r.endBySaved = r.maxEnd;
+              // Restguthaben: Der FZA ist auf CONFIG.maxFzaMonths begrenzt, übriges Guthaben wird ausgezahlt
+              r.payout = Math.max(0, r.saldo);
+              r.payoutEur = r.payout * plan.wage;
+              r.restAtMax = Math.max(0, r.saved - ((diffDays(r.SS, r.maxEnd) + 1) / 7) * F);
             }
             if (r.perWeek <= 0) r.saved = 0;
             r.vacTotal = r.vac + r.transN;
@@ -3545,6 +3622,7 @@
             q.set("w", st.wage);
             q.set("d", st.workdays.join(""));
             q.set("r", st.reduced);
+            q.set("fz", st.fzaHours);
             q.set("as", d8(st.asStart));
             q.set("ae", d8(st.asEnd));
             q.set("u", st.vacDays);
@@ -3577,6 +3655,9 @@
             setN("hours", "h", 1, 60);
             setN("wage", "w", 1, 500);
             setN("reduced", "r", 0, 60);
+            // Links aus der Zeit vor den FZA-Wochenstunden: FZA mit voller Stundenzahl
+            if (q.get("fz") != null) setN("fzaHours", "fz", 0, 60);
+            else st.fzaHours = st.hours;
             setN("vacDays", "u", 0, 120, true);
             setN("sick", "k", 0, 120, true);
             if (q.get("mi") != null) setN("minIncome", "mi", 0, 10000);
@@ -3606,7 +3687,7 @@
               if (!st.sabEnd) st.sabLen = "3";
             }
             const sv = q.get("s");
-            st.solve = ["reduced", "asStart", "sabEnd"].includes(sv) ? sv : "none";
+            st.solve = ["reduced", "fzaHours", "asStart", "sabEnd"].includes(sv) ? sv : "none";
             if (bad.length) return null;
             st.touched = {};
             EXKEYS.forEach((k) => (st.touched[k] = true));
@@ -3650,6 +3731,45 @@
                   " h reicht das Guthaben nicht. Ansparphase verlängern oder den FZA kürzen.",
               };
             }
+            if (sv === "fzaHours") {
+              if (!(r.saved > 0))
+                return {
+                  changes: {},
+                  bad: true,
+                  m: "Ohne angespartes Guthaben lassen sich keine FZA-Stunden berechnen.",
+                };
+              if (r.reqFf > r.H)
+                return {
+                  changes: { fzaHours: r.H },
+                  m:
+                    "Berechnet: Dein Guthaben reicht sogar für die vollen " +
+                    nf1.format(r.H) +
+                    " h pro Woche." +
+                    (r.SE === r.maxEnd
+                      ? " Länger als " +
+                        CONFIG.maxFzaMonths +
+                        " Kalendermonate geht nicht. Die übrigen " +
+                        h(r.saved - r.weeks * r.H) +
+                        " werden ausgezahlt."
+                      : " Du kannst den FZA verlängern oder weniger ansparen."),
+                };
+              if (!r.reqFOk)
+                return {
+                  changes: { fzaHours: r.minRup },
+                  bad: true,
+                  m:
+                    "Selbst mit der Untergrenze von " +
+                    nf2.format(r.minRup) +
+                    " h pro Woche im FZA reicht das Guthaben nicht. Mehr ansparen oder den FZA kürzen.",
+                };
+              return {
+                changes: { fzaHours: r.reqFf },
+                m:
+                  "Berechnet: Mit " +
+                  nf2.format(r.reqFf) +
+                  " bezahlten Stunden pro Woche im FZA reicht dein Guthaben genau für den gewählten Zeitraum.",
+              };
+            }
             if (sv === "asStart") {
               if (!r.latestCur)
                 return {
@@ -3680,7 +3800,9 @@
                   r.endBySaved === r.maxEnd
                     ? "Berechnet: Dein Guthaben würde länger reichen, der FZA ist aber auf " +
                       CONFIG.maxFzaMonths +
-                      " Kalendermonate begrenzt."
+                      " Kalendermonate begrenzt. Die übrigen " +
+                      h(r.restAtMax) +
+                      " werden ausgezahlt."
                     : "Berechnet: So lange reicht dein angespartes Guthaben.",
               };
             }
@@ -3726,6 +3848,11 @@
               ["vacDays", "sick", "transDays"].forEach((k) => {
                 if (!o.touched[k] && o[k] === 5) o[k] = 0;
               });
+            // Version 3 -> 4: FZA-Wochenstunden neu. Bisher wurde im FZA die volle Stundenzahl bezahlt.
+            if ((o.schema || 1) < 4 && o.fzaHours == null) {
+              o.fzaHours = o.hours != null ? o.hours : defaults.hours;
+              if (o.touched.hours) o.touched.fzaHours = true;
+            }
             o.schema = CONFIG.schemaVersion;
             return Object.assign(clone(defaults), o);
           }
@@ -3861,7 +3988,7 @@
         const isWork = (s) => Core.isWork(s, plan.workdays);
         const weight = (s) => Core.weight(s, plan.workdays);
         const compute = () => Core.compute(plan, TODAY);
-        const evalState = (st) => Core.compute(Object.assign(clone(DEFAULTS), st), TODAY);
+        const evalState = (st) => Core.compute(Core.migrate(clone(st), DEFAULTS), TODAY);
         const robustness = () => Core.robustness(plan, TODAY);
         const encodePlan = (st) => Core.encodePlan(st);
         const decodePlan = (hash) => Core.decodePlan(hash, DEFAULTS);
@@ -3962,6 +4089,13 @@
           });
         });
         document.querySelectorAll(".msg[id]").forEach((m) => (m.dataset.def = m.textContent));
+        $("#f-fzaHours-range").addEventListener("input", (e) => {
+          plan.fzaHours = +e.target.value;
+          touch("fzaHours");
+          $("#f-fzaHours").value = fin(plan.fzaHours);
+          $("#f-fzaHours").closest(".field").classList.remove("has-err");
+          changed();
+        });
         $("#f-reduced-range").addEventListener("input", (e) => {
           plan.reduced = +e.target.value;
           touch("reduced");
@@ -4262,14 +4396,16 @@
           });
         })();
         const SOLVE_SENT = {
-          reduced: "Berechnet werden die bezahlten Wochenstunden.",
+          reduced: "Berechnet werden die bezahlten Wochenstunden in der Ansparphase.",
+          fzaHours: "Berechnet werden die bezahlten Wochenstunden im FZA.",
           asStart: "Berechnet wird der Beginn der Ansparphase.",
           sabEnd: "Berechnet wird das Ende des FZA.",
         };
         const EXLABEL = {
           hours: "Wochenstunden",
           wage: "Stundenlohn",
-          reduced: "bezahlte Wochenstunden",
+          reduced: "bezahlte Wochenstunden in der Ansparphase",
+          fzaHours: "bezahlte Wochenstunden im FZA",
           asStart: "Beginn der Ansparphase",
           asEnd: "Ende der Ansparphase",
           vacDays: "Urlaubstage",
@@ -4280,6 +4416,7 @@
           hours: "#f-hours",
           wage: "#f-wage",
           reduced: "#f-reduced",
+          fzaHours: "#f-fzaHours",
           vacDays: "#f-vacDays",
           sick: "#f-sick",
           transDays: "#f-transDays",
@@ -4289,6 +4426,7 @@
           hours: "f-hours",
           wage: "f-wage",
           reduced: "f-reduced",
+          fzaHours: "f-fzaHours",
           asStart: "asStart-d",
           asEnd: "asEnd-d",
           vacDays: "f-vacDays",
@@ -4299,6 +4437,7 @@
         };
         const ERRFIELD = {
           reduced: "f-reduced",
+          fzaHours: "f-fzaHours",
           asStart: "asStart-d",
           asEnd: "asEnd-d",
           sabStart: "sabStart-d",
@@ -4521,6 +4660,7 @@
           $("#f-min").value = fin(plan.minIncome);
           $("#f-factor").value = fin(plan.factor);
           $("#f-reduced").value = fin(plan.reduced);
+          $("#f-fzaHours").value = fin(plan.fzaHours);
           $("#f-sick").value = plan.sick;
           $("#f-vacDays").value = plan.vacDays;
           $("#f-transDays").value = plan.transDays;
@@ -5070,6 +5210,31 @@
         /* =====================================================================
            5. Darstellung: alles, was aus Planung und Ergebnis die Seite zeichnet
            ===================================================================== */
+        /* Ein Schieberegler mit Zonen. Grün reicht von der Gehaltsgrenze bis zu dem Wert, bei dem das Guthaben genau reicht. */
+        function renderSlider(key, value, r, hasReq, req, reqf, reqOk) {
+          const max = plan.hours;
+          const rng = $("#f-" + key + "-range");
+          rng.max = max;
+          rng.value = Math.min(value, max);
+          const pc = (x) => Math.min(100, Math.max(0, (x / max) * 100));
+          const p1 = pc(r.minR);
+          const p2 = hasReq ? Math.max(p1, pc(req)) : p1;
+          const zone = $("#slider-zone-" + key);
+          zone.style.setProperty("--p1", p1 + "%");
+          zone.style.setProperty("--p2", p2 + "%");
+          const tick = $("#slider-tick-" + key);
+          tick.hidden = !(hasReq && reqOk && req < max);
+          tick.style.left = p2 + "%";
+          $("#slider-ends-" + key).innerHTML = `<span>0 h</span><span>${nf1.format(max)} h</span>`;
+          let z = `<span><i class="sw sw-zred"></i>Unter ${eur.format(plan.minIncome)}: unter <b>${nf2.format(r.minRup)} h</b></span>`;
+          if (hasReq && reqOk && req >= max)
+            z += `<span><i class="sw sw-zgreen"></i>Plan geht auf: <b>${nf2.format(r.minRup)} bis ${nf1.format(max)} h</b></span>`;
+          else if (hasReq && reqOk)
+            z += `<span><i class="sw sw-zgreen"></i>Plan geht auf: <b>${nf2.format(r.minRup)} bis ${nf2.format(reqf)} h</b></span><span><i class="sw sw-zgray"></i>Guthaben reicht nicht: über <b>${nf2.format(reqf)} h</b></span>`;
+          else if (hasReq)
+            z += `<span><i class="sw sw-zgray"></i>Guthaben reicht bei keiner erlaubten Stundenzahl</span>`;
+          $("#zones-" + key).innerHTML = z;
+        }
         function render() {
           const sn = applySolve();
           result = compute();
@@ -5082,27 +5247,10 @@
           mr.value = Math.min(plan.reduced, plan.hours);
           mr.disabled = plan.solve === "reduced";
           $("#m-red").textContent = nf2.format(plan.reduced) + " h";
-          // Schieberegler mit Zonen
-          const rng = $("#f-reduced-range");
-          rng.max = plan.hours;
-          rng.value = Math.min(plan.reduced, plan.hours);
-          const pc = (x) => Math.min(100, Math.max(0, (x / plan.hours) * 100));
-          const p1 = pc(r.minR);
-          const hasReq = r.reqR != null && r.SS && r.SE;
-          const p2 = hasReq ? Math.max(p1, pc(r.reqR)) : p1;
-          const zone = $("#slider-zone");
-          zone.style.setProperty("--p1", p1 + "%");
-          zone.style.setProperty("--p2", p2 + "%");
-          const tick = $("#slider-tick");
-          tick.hidden = !(hasReq && r.reqOk);
-          tick.style.left = p2 + "%";
-          $("#slider-ends").innerHTML = `<span>0 h</span><span>${nf1.format(plan.hours)} h</span>`;
-          let z = `<span><i class="sw sw-zred"></i>Unter ${eur.format(plan.minIncome)}: unter <b>${nf2.format(r.minRup)} h</b></span>`;
-          if (hasReq && r.reqOk)
-            z += `<span><i class="sw sw-zgreen"></i>Plan geht auf: <b>${nf2.format(r.minRup)} bis ${nf2.format(r.reqRf)} h</b></span><span><i class="sw sw-zgray"></i>Guthaben reicht nicht: über <b>${nf2.format(r.reqRf)} h</b></span>`;
-          else if (hasReq)
-            z += `<span><i class="sw sw-zgray"></i>Guthaben reicht bei keiner erlaubten Stundenzahl</span>`;
-          $("#zones").innerHTML = z;
+          // Schieberegler mit Zonen: rot unter der Gehaltsgrenze, grün solange der Plan aufgeht
+          const hasPlan = !!(r.SS && r.SE && r.asOk);
+          renderSlider("reduced", plan.reduced, r, hasPlan && r.reqR != null, r.reqR, r.reqRf, r.reqOk);
+          renderSlider("fzaHours", plan.fzaHours, r, hasPlan && r.reqF != null, r.reqF, r.reqFf, r.reqFOk);
           $("#wrap-transDays").hidden = plan.transMode !== "auto";
           $("#df-sabStart").hidden = plan.transMode === "auto";
           $("#df-sabEnd").hidden = plan.sabLen !== "date";
@@ -5111,6 +5259,16 @@
             const bad = r.belowMin || plan.reduced >= plan.hours;
             rm.classList.toggle("err", bad);
             rm.textContent = bad ? (r.errors.find((e) => e.f === "reduced") || {}).m : "";
+          }
+          const fm = $("#f-fzaHours-msg");
+          if (!$("#f-fzaHours").closest(".field").classList.contains("has-err")) {
+            const fe = r.errors.find((e) => e.f === "fzaHours");
+            fm.classList.toggle("err", !!fe);
+            fm.textContent = fe
+              ? fe.m
+              : "Gehalt im FZA: " +
+                eur.format(r.fzaMonthly) +
+                " im Monat. Weniger Stunden verteilen dein Guthaben auf mehr Tage.";
           }
           // Feldfehler aus Querprüfung
           const ferr = (k) => (r.errors.find((e) => e.f === k) || {}).m || null;
@@ -5196,7 +5354,7 @@
                     row("Kalendertage", String(r.cal)) +
                     row("Wochen (" + r.cal + " ÷ 7)", nf2.format(r.weeks)) +
                     row(
-                      "Benötigtes Guthaben (" + nf2.format(r.weeks) + " × " + nf1.format(plan.hours) + " h)",
+                      "Benötigtes Guthaben (" + nf2.format(r.weeks) + " × " + nf1.format(r.F) + " h)",
                       h(r.needed),
                     ) +
                     row("Spätestmögliches Ende (3 Monate)", fds(r.maxEnd), true),
@@ -5241,6 +5399,7 @@
           const sv = plan.solve || "none";
           [
             ["reduced", "#sl-reduced"],
+            ["fzaHours", "#sl-fzaHours"],
             ["asStart", "#sl-asStart"],
             ["sabEnd", "#sl-sabEnd"],
           ].forEach(([k, sel]) => {
@@ -5251,6 +5410,14 @@
             b.title = on ? "Wert wieder selbst eingeben" : "Diesen Wert für mich ausrechnen";
             b.dataset.solve = on ? "none" : k;
           });
+          const lockF = sv === "fzaHours";
+          $("#f-fzaHours").disabled = lockF;
+          $("#f-fzaHours-range").disabled = lockF;
+          $("#f-fzaHours").closest(".field").classList.toggle("locked", lockF);
+          if (lockF) {
+            $("#f-fzaHours").value = fin(plan.fzaHours);
+            $("#f-fzaHours").closest(".field").classList.remove("has-err");
+          }
           const lockR = sv === "reduced";
           $("#f-reduced").disabled = lockR;
           $("#f-reduced-range").disabled = lockR;
@@ -5320,7 +5487,9 @@
             mC = demo ? "" : ok ? "ok" : "bad";
             o += `<div class="status ${demo ? "demo" : ok ? "ok" : "bad"}"><div class="status-main">${ic(demo ? "info" : ok ? "checkCircle" : "alertTriangle")}${title}</div><div class="status-sub">${sub}</div></div>`;
             const free1 = addDays(plan.asEnd, 1);
-            o += `<p class="summary">Ansparen vom <b>${fd(plan.asStart)}</b> bis <b>${fd(plan.asEnd)}</b> für ${eur.format(r.monthly)} im Monat. Frei vom <b>${fd(free1)}</b> bis <b>${fd(r.SE)}</b> (${r.freeCal} Tage).</p>`;
+            o += `<p class="summary">Ansparen vom <b>${fd(plan.asStart)}</b> bis <b>${fd(plan.asEnd)}</b> für ${eur.format(r.monthly)} im Monat. Frei vom <b>${fd(free1)}</b> bis <b>${fd(r.SE)}</b> (${r.freeCal} Tage), im FZA ${eur.format(r.fzaMonthly)} im Monat.</p>`;
+            if (!demo && !firstError && r.payout > 0.004)
+              o += `<ul class="notes"><li class="tip" id="payout-note">${ic("info")}<span>${payoutText(r)}</span></li></ul>`;
             const mx = Math.max(r.saved, r.needed, 1);
             o += `<div class="prog ${demo ? "demo" : ok ? "" : "bad"}"><div class="prog-l"><span>Angespart<button type="button" class="how" data-how="4" aria-label="Wie wird das angesparte Guthaben berechnet?">${ic("help")}</button></span><span><b>${h(r.saved)}</b> von ${h(r.needed)}<button type="button" class="how" data-how="1" aria-label="Wie wird das benötigte Guthaben berechnet?">${ic("help")}</button></span></div>
       <div class="prog-track" role="img" aria-label="Angespart ${h(r.saved)} von ${h(r.needed)} benötigt"><div class="prog-fill" style="width:${(r.saved / mx) * 100}%"></div>${r.saved > r.needed ? `<span class="prog-mark" style="left:${(r.needed / mx) * 100}%"></span>` : ""}</div></div>`;
@@ -5338,8 +5507,24 @@
               o +=
                 `<div class="adjust"><div class="panel-tag">Was soll sich anpassen?</div><p class="help">Wähle eine Größe. Der Planer rechnet sie aus und hält sie passend, wenn du andere Werte änderst.</p>` +
                 opt(
+                  "fzaHours",
+                  "Weniger Wochenstunden im FZA",
+                  r.reqFOk,
+                  r.reqFOk
+                    ? "auf " +
+                        nf2.format(Math.min(r.reqFf, plan.hours)) +
+                        " h pro Woche (" +
+                        eur.format(Math.min(r.reqFf, plan.hours) * plan.factor * plan.wage) +
+                        " im Monat im FZA)"
+                    : "nicht möglich: nötig wären " +
+                        nf2.format(Math.max(0, r.reqF || 0)) +
+                        " h, Untergrenze " +
+                        nf2.format(r.minRup) +
+                        " h",
+                ) +
+                opt(
                   "reduced",
-                  "Weniger bezahlte Stunden",
+                  "Weniger bezahlte Stunden in der Ansparphase",
                   r.reqOk,
                   r.reqOk
                     ? "auf " +
@@ -5371,6 +5556,7 @@
             } else {
               best =
                 L.find((x) => x.k === "sabEnd" && x.dir === "more") ||
+                L.find((x) => x.k === "fzaHours" && x.dir === "more") ||
                 L.find((x) => x.k === "reduced" && x.dir === "more");
               if (best && r.saldo >= -1e-9 && (!plan.solve || plan.solve === "none"))
                 o += `<div class="sugg"><div class="panel-tag">Möglich</div>${best.html}</div>`;
@@ -5378,9 +5564,11 @@
             const rest = L.filter((x) => x !== best);
             more += `<dl class="kv">
       <dt>Saldo<button type="button" class="how" data-how="5" aria-label="Wie wird der Saldo berechnet?">${ic("help")}</button></dt><dd>${sgn(r.saldo)} h</dd>
+      <dt>Auszahlung Restguthaben</dt><dd>${r.payout > 0.004 ? h(r.payout) + " ≈ " + eur.format(r.payoutEur) : "keine"}</dd>
       <dt>Benötigt<button type="button" class="how" data-how="1" aria-label="Wie wird das benötigte Guthaben berechnet?">${ic("help")}</button></dt><dd>${h(r.needed)}</dd>
       <dt>Angespart<button type="button" class="how" data-how="4" aria-label="Wie wird das angesparte Guthaben berechnet?">${ic("help")}</button></dt><dd>${h(r.saved)}</dd>
       <dt>Gehalt pro Monat<button type="button" class="how" data-how="6" aria-label="Wie wird das Gehalt berechnet?">${ic("help")}</button></dt><dd>${eur.format(r.monthly)}${r.belowMin ? '<span class="pill err">unter Grenze</span>' : ""}</dd>
+      <dt>Gehalt im FZA<button type="button" class="how" data-how="6" aria-label="Wie wird das Gehalt im FZA berechnet?">${ic("help")}</button></dt><dd>${eur.format(r.fzaMonthly)} (${nf2.format(r.F)} h pro Woche)${r.fzaBelowMin ? '<span class="pill err">unter Grenze</span>' : ""}</dd>
       <dt>FZA</dt><dd>${fd(r.SS)} bis ${fd(r.SE)}</dd>
       <dt>Länge</dt><dd>${r.cal} Tage · ${nf2.format(r.weeks)} Wo.</dd>
       <dt>Anspartage</dt><dd>${nf1.format(r.eff)}</dd>
@@ -5433,9 +5621,27 @@
             ic(mC === "ok" ? "checkCircle" : mC === "bad" ? "alertTriangle" : "info") + esc(mS);
           $("#mbar-v").textContent = mV;
         }
+        /* Übriges Guthaben am Ende des FZA wird ausgezahlt. */
+        function payoutText(r) {
+          return (
+            (r.SE === r.maxEnd && r.restAtMax > 0.004
+              ? `Dein Guthaben reicht länger als ${CONFIG.maxFzaMonths} Kalendermonate, der FZA endet trotzdem spätestens am ${fd(r.maxEnd)}. `
+              : "") +
+            `Übriges Guthaben von <b>${h(r.payout)}</b> wird nach dem FZA ausgezahlt, etwa <b>${eur.format(r.payoutEur)}</b> brutto.`
+          );
+        }
         function suggestions(r) {
           const L = [];
           const sv = plan.solve || "none";
+          if (r.reqF != null && sv !== "fzaHours" && r.reqFOk) {
+            const target = Math.min(r.reqFf, plan.hours);
+            if (Math.abs(target - plan.fzaHours) > 0.004)
+              L.push({
+                k: "fzaHours",
+                dir: target < plan.fzaHours ? "fix" : "more",
+                html: `<div class="sugg-item"><div><strong>${nf2.format(target)} h / Woche im FZA</strong><p>${target < plan.fzaHours ? "Weniger Stunden im FZA, damit das Guthaben den Zeitraum abdeckt" : "Mehr Gehalt im FZA möglich: so viele Stunden deckt dein Guthaben"} (Gehalt im FZA ${eur.format(target * plan.factor * plan.wage)})</p></div><button type="button" class="btn sm primary" data-apply="fzaHours=${target}">Übernehmen</button></div>`,
+              });
+          }
           if (r.reqR != null && sv !== "reduced") {
             if (r.reqOk && Math.abs(r.reqRf - plan.reduced) > 0.004)
               L.push({
@@ -5466,7 +5672,7 @@
             L.push({
               k: "sabEnd",
               dir: r.endBySaved < r.SE ? "fix" : "more",
-              html: `<div class="sugg-item"><div><strong>Ende ${fd(r.endBySaved)}</strong><p>${r.endBySaved > r.SE ? "Längerer FZA: So lange reicht dein Guthaben" + (r.endBySaved === r.maxEnd ? " (begrenzt auf 3 Monate)" : "") : "Kürzerer FZA: Spätestes Ende, das dein Guthaben abdeckt"}</p></div><button type="button" class="btn sm" data-apply="sabEnd=${r.endBySaved}">Übernehmen</button></div>`,
+              html: `<div class="sugg-item"><div><strong>Ende ${fd(r.endBySaved)}</strong><p>${r.endBySaved > r.SE ? "Längerer FZA: So lange reicht dein Guthaben" + (r.endBySaved === r.maxEnd ? " (begrenzt auf " + CONFIG.maxFzaMonths + " Monate, Rest wird ausgezahlt)" : "") : "Kürzerer FZA: Spätestes Ende, das dein Guthaben abdeckt"}</p></div><button type="button" class="btn sm" data-apply="sabEnd=${r.endBySaved}">Übernehmen</button></div>`,
             });
           return L;
         }
@@ -5500,7 +5706,7 @@
               name: "Übergang",
               items: mk(plan.transMode === "auto" ? ["transDays"] : ["sabStart"]),
             },
-            { id: "step-fza", name: "FZA", items: mk(["sabEnd"]) },
+            { id: "step-fza", name: "FZA", items: mk(["sabEnd", "fzaHours"]) },
           ];
         }
         function renderProgress() {
@@ -5663,11 +5869,13 @@
           o += step(
             1,
             "Wie viel Guthaben braucht der FZA?",
-            "Gezählt werden die Wochen des FZA, berechnet als Kalendertage / 7. Die tatsächliche Zahl der Werktage ist irrelevant. Jede Woche kostet die volle vertragliche Wochenstundenzahl. Jeder Kalendertag kostet damit " +
+            "Gezählt werden die Wochen des FZA, berechnet als Kalendertage / 7. Die tatsächliche Zahl der Werktage ist irrelevant. Jede Woche verbraucht so viele Stunden Guthaben, wie du im FZA bezahlt bekommst (" +
+              nf2.format(r.F) +
+              " h pro Woche). Jeder Kalendertag kostet damit " +
               h(r.hPerCal) +
               ".",
             ok
-              ? `${fd(r.SS)} bis ${fd(r.SE)} = ${r.cal} Tage <em>→</em> ${r.cal} ÷ 7 = ${nf2.format(r.weeks)} Wochen <em>→</em> ${nf2.format(r.weeks)} × ${nf1.format(H)} h = <b>${h(r.needed)}</b>`
+              ? `${fd(r.SS)} bis ${fd(r.SE)} = ${r.cal} Tage <em>→</em> ${r.cal} ÷ 7 = ${nf2.format(r.weeks)} Wochen <em>→</em> ${nf2.format(r.weeks)} × ${nf2.format(r.F)} h = <b>${h(r.needed)}</b>`
               : "FZA-Zeitraum fehlt",
           );
           o += step(
@@ -5701,22 +5909,22 @@
           o += step(
             5,
             "Reicht es?",
-            "Angespartes Guthaben minus benötigtes Guthaben. Ein positiver Wert ist Puffer, ein negativer Wert fehlt. Umgerechnet in Arbeitstage zu je " +
+            "Angespartes Guthaben minus benötigtes Guthaben. Ein positiver Wert ist Puffer und wird nach dem FZA ausgezahlt (Stunden × Stundenlohn), ein negativer Wert fehlt. Umgerechnet in Arbeitstage zu je " +
               h(r.hPerWorkday) +
               ".",
             ok && r.asOk
-              ? `${h(r.saved)} − ${h(r.needed)} = <b>${sgn(r.saldo)} h</b> ≈ ${nf1.format(Math.round(r.saldoDays * 10) / 10)} Arbeitstage`
+              ? `${h(r.saved)} − ${h(r.needed)} = <b>${sgn(r.saldo)} h</b> ≈ ${nf1.format(Math.round(r.saldoDays * 10) / 10)} Arbeitstage${r.payout > 0.004 ? ` <em>·</em> Auszahlung ${h(r.payout)} × ${eur.format(plan.wage)} = <b>${eur.format(r.payoutEur)}</b>` : ""}`
               : "",
           );
           o += step(
             6,
             "Wie weit darfst du reduzieren?",
-            "In der Ansparphase muss das Monatsgehalt mindestens " +
+            "In der Ansparphase und im FZA muss das Monatsgehalt jeweils mindestens " +
               eur.format(plan.minIncome) +
               " betragen. Monatsgehalt = bezahlte Wochenstunden × " +
               nf1.format(plan.factor) +
               " Wochen pro Monat × Stundenlohn.",
-            `${nf1.format(plan.reduced)} h × ${nf1.format(plan.factor)} × ${eur.format(plan.wage)} = <b>${eur.format(r.monthly)}</b> <em>·</em> Minimum: ${eur.format(plan.minIncome)} ÷ (${nf1.format(plan.factor)} × ${eur.format(plan.wage)}) = <b>${nf2.format(r.minRup)} h</b>`,
+            `Ansparphase: ${nf1.format(plan.reduced)} h × ${nf1.format(plan.factor)} × ${eur.format(plan.wage)} = <b>${eur.format(r.monthly)}</b> <em>·</em> FZA: ${nf2.format(r.F)} h × ${nf1.format(plan.factor)} × ${eur.format(plan.wage)} = <b>${eur.format(r.fzaMonthly)}</b> <em>·</em> Minimum: ${eur.format(plan.minIncome)} ÷ (${nf1.format(plan.factor)} × ${eur.format(plan.wage)}) = <b>${nf2.format(r.minRup)} h</b>`,
           );
           o += step(
             7,
@@ -5729,9 +5937,9 @@
           o += step(
             8,
             "Wie entstehen die Vorschläge?",
-            "Die nötigen bezahlten Stunden lösen Schritt 5 nach der Stundenzahl auf. Der späteste Beginn zählt vom Ende der Ansparphase rückwärts Anspartage, bis das Guthaben plus Urlaubstage und Krankheitspuffer erreicht ist.",
+            "Die nötigen bezahlten Stunden lösen Schritt 5 nach der Stundenzahl auf. Die Wochenstunden im FZA ergeben sich aus angespartem Guthaben ÷ Wochen des FZA. Der späteste Beginn zählt vom Ende der Ansparphase rückwärts Anspartage, bis das Guthaben plus Urlaubstage und Krankheitspuffer erreicht ist.",
             ok && r.eff
-              ? `${nf1.format(H)} h − ${h(r.needed)} × ${D} ÷ ${nf1.format(r.eff)} = <b>${nf2.format(r.reqR)} h</b> bezahlte Wochenstunden für Saldo 0`
+              ? `Ansparphase: ${nf1.format(H)} h − ${h(r.needed)} × ${D} ÷ ${nf1.format(r.eff)} = <b>${nf2.format(r.reqR)} h</b> <em>·</em> FZA: ${h(r.saved)} ÷ ${nf2.format(r.weeks)} Wochen = <b>${nf2.format(r.reqF)} h</b> pro Woche für Saldo 0`
               : "",
           );
           $("#explain").innerHTML = o;
@@ -5744,7 +5952,12 @@
               plan.workdays.map((d) => WD[d]).join(", ") +
               ").",
             "An Urlaubs-, Krankheits- und Feiertagen wird nichts angespart. Bezahlt wird in der ganzen Ansparphase die reduzierte Stundenzahl.",
-            "Während des FZA wird das Zeitguthaben abgebaut. Ob das volle Gehalt weiterläuft, regelt deine Vereinbarung. Bitte mit der Personalabteilung klären.",
+            "Während des FZA wird das Zeitguthaben abgebaut. Bezahlt werden die Wochenstunden, die du für den FZA angibst. Je weniger Stunden pro Woche, desto länger reicht das Guthaben. Auch im FZA müssen mindestens " +
+              eur.format(plan.minIncome) +
+              " im Monat ausgezahlt werden.",
+            "Der FZA dauert höchstens " +
+              CONFIG.maxFzaMonths +
+              " Kalendermonate, auch wenn das Guthaben länger reichen würde. Übriges Guthaben wird nach dem FZA ausgezahlt: Stunden × Stundenlohn (brutto).",
             "Wochen im FZA werden exakt als Dezimalzahl gerechnet (Kalendertage ÷ 7), ohne Rundung.",
             "Monatsgehalt = Wochenstunden × " + nf1.format(plan.factor) + " × Stundenlohn (brutto).",
             "Kalender und Datumsauswahl reichen von " + YEAR0 + " bis " + YEAR1 + ".",
@@ -5808,6 +6021,8 @@
             ],
             ["Bezahlte Stunden", (c) => nf2.format(c.st.reduced) + " h / Woche"],
             ["Gehalt pro Monat", (c) => eur.format(c.r.monthly)],
+            ["Bezahlte Stunden im FZA", (c) => nf2.format(c.r.F || 0) + " h / Woche"],
+            ["Gehalt im FZA", (c) => eur.format(c.r.fzaMonthly || 0)],
             ["Weniger Gehalt pro Monat", (c) => eur.format(c.r.lossMonthly)],
             ["Urlaub und Krankheitspuffer", (c) => c.st.vacDays + " + " + c.st.sick + " Tage"],
             ["Übergangsurlaub", (c) => nf1.format(c.r.transN || 0) + " Tage"],
@@ -5850,12 +6065,22 @@
             em = +r.SE.slice(5, 7);
           while ((y < ey || (y === ey && m <= em)) && months.length < 24) {
             const n = dim(y, m);
-            let a = 0;
+            let a = 0,
+              z = 0;
             for (let d = 1; d <= n; d++) {
               const s = iso3(y, m, d);
               if (s >= plan.asStart && s <= plan.asEnd) a++;
+              else if (s >= r.SS && s <= r.SE) z++;
             }
-            months.push({ y, m, red: (r.monthly * a) / n, full: (r.fullMonthly * (n - a)) / n, a, n });
+            months.push({
+              y,
+              m,
+              red: (r.monthly * a + r.fzaMonthly * z) / n,
+              full: (r.fullMonthly * (n - a - z)) / n,
+              a,
+              z,
+              n,
+            });
             m++;
             if (m > 12) {
               m = 1;
@@ -5914,13 +6139,13 @@
           const rows = months
             .map(
               (mo) =>
-                `<tr><td>${MONTHS[mo.m - 1]} ${mo.y}</td><td>${mo.a}</td><td>${eur.format(mo.red)}</td><td>${eur.format(mo.full)}</td><td><b>${eur.format(mo.red + mo.full)}</b></td></tr>`,
+                `<tr><td>${MONTHS[mo.m - 1]} ${mo.y}</td><td>${mo.a}</td><td>${mo.z}</td><td>${eur.format(mo.red)}</td><td>${eur.format(mo.full)}</td><td><b>${eur.format(mo.red + mo.full)}</b></td></tr>`,
             )
             .join("");
-          box.innerHTML = `<div class="c-legend"><span><i class="sw sw-barred"></i>Reduziertes Gehalt (Ansparphase, ${eur.format(r.monthly)} pro vollem Monat)</span><span><i class="sw sw-barfull"></i>Volles Gehalt (vorher, Übergang, FZA)</span></div>
+          box.innerHTML = `<div class="c-legend"><span><i class="sw sw-barred"></i>Reduziertes Gehalt (Ansparphase ${eur.format(r.monthly)}, FZA ${eur.format(r.fzaMonthly)} pro vollem Monat)</span><span><i class="sw sw-barfull"></i>Volles Gehalt (vorher, Übergang)</span></div>
     <svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Bruttogehalt pro Monat von ${MONTHS[months[0].m - 1]} ${months[0].y} bis ${MONTHS[em - 1]} ${ey}">${g}${bars}${ref}</svg>
     <div class="c-tip" id="c-tip" hidden></div>
-    <details><summary class="help chev">Als Tabelle anzeigen</summary><div class="tbl-wrap mt-8"><table><thead><tr><th>Monat</th><th>Tage in der Ansparphase</th><th>Reduziert</th><th>Voll</th><th>Gesamt</th></tr></thead><tbody>${rows}</tbody></table></div></details>`;
+    <details><summary class="help chev">Als Tabelle anzeigen</summary><div class="tbl-wrap mt-8"><table><thead><tr><th>Monat</th><th>Tage in der Ansparphase</th><th>Tage im FZA</th><th>Reduziert</th><th>Voll</th><th>Gesamt</th></tr></thead><tbody>${rows}</tbody></table></div></details>`;
           const tip = $("#c-tip"),
             svg = box.querySelector("svg");
           box.querySelectorAll(".hit").forEach((hb) => {
@@ -5931,7 +6156,8 @@
                 .forEach((gg) => gg.classList.toggle("on", gg.dataset.i === hb.dataset.i));
               tip.innerHTML =
                 `${MONTHS[mo.m - 1]} ${mo.y}<br>Gesamt <b>${eur.format(mo.red + mo.full)}</b>` +
-                (mo.a ? `<br>${mo.a} von ${mo.n} Tagen in der Ansparphase` : "");
+                (mo.a ? `<br>${mo.a} von ${mo.n} Tagen in der Ansparphase` : "") +
+                (mo.z ? `<br>${mo.z} von ${mo.n} Tagen im FZA` : "");
               tip.hidden = false;
               const br = box.getBoundingClientRect(),
                 hr = hb.getBoundingClientRect();
@@ -6027,9 +6253,16 @@
               "Benötigtes Zeitguthaben: " +
                 nf2.format(r.weeks) +
                 " Wochen × " +
-                nf1.format(plan.hours) +
+                nf2.format(r.F) +
                 " h = " +
                 h(r.needed),
+            );
+            L.push(
+              "Bezahlte Wochenstunden im FZA: " +
+                nf2.format(r.F) +
+                " h (" +
+                eur.format(r.fzaMonthly) +
+                " brutto pro Monat)",
             );
             L.push(
               "Saldo: " +
@@ -6038,6 +6271,14 @@
                 (r.saldo >= -1e-9 ? "Guthaben reicht" : "Guthaben reicht nicht") +
                 ")",
             );
+            if (r.payout > 0.004)
+              L.push(
+                "Auszahlung Restguthaben nach dem FZA: " +
+                  h(r.payout) +
+                  " ≈ " +
+                  eur.format(r.payoutEur) +
+                  " brutto",
+              );
           }
           L.push("");
           L.push(
@@ -6099,7 +6340,8 @@
           touch(k);
           showToast(
             {
-              reduced: "Bezahlte Stunden " + nf2.format(+v) + " h",
+              reduced: "Bezahlte Stunden in der Ansparphase " + nf2.format(+v) + " h",
+              fzaHours: "Bezahlte Stunden im FZA " + nf2.format(+v) + " h",
               asStart: "Beginn der Ansparphase " + fd(v),
               sabEnd: "Ende des FZA " + fd(v),
               sabStart: "Beginn des FZA " + fd(v),
@@ -6108,6 +6350,8 @@
           );
           if (k === "reduced") {
             plan.reduced = +v;
+          } else if (k === "fzaHours") {
+            plan.fzaHours = +v;
           } else if (k === "asStart") {
             plan.asStart = v;
           } else if (k === "sabEnd") {
