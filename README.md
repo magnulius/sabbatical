@@ -10,8 +10,8 @@ Ein Planungstool für einen Freizeitausgleich (FZA), umgangssprachlich Sabbatica
 - **Ansparphase planen:** Zeitraum, Urlaubstage und Krankheitspuffer
 - **Übergang:** Urlaubstage zwischen Ansparphase und FZA, die die freie Zeit verlängern
 - **Freizeitausgleich:** 1 bis 3 Kalendermonate oder ein eigenes Enddatum
-- **Stellschraube:** bezahlte Wochenstunden per Schieberegler, mit Anzeige, ab wann der Plan aufgeht und wo die Gehaltsuntergrenze liegt
-- **Ausrechnen lassen:** bezahlte Stunden, Beginn der Ansparphase oder Ende des FZA
+- **Stellschrauben:** bezahlte Wochenstunden in der Ansparphase und im FZA per Schieberegler, mit Anzeige, ab wann der Plan aufgeht und wo die Gehaltsuntergrenze liegt
+- **Ausrechnen lassen:** bezahlte Stunden in Ansparphase oder FZA, Beginn der Ansparphase oder Ende des FZA
 - **Szenarien:** bis zu drei Varianten nebeneinander vergleichen
 - **Kalender und Gehaltsverlauf:** alle Phasen im Monatskalender, Bruttogehalt pro Monat als Diagramm
 - **Rechenweg:** jede Berechnung Schritt für Schritt mit den eigenen Zahlen
@@ -19,12 +19,14 @@ Ein Planungstool für einen Freizeitausgleich (FZA), umgangssprachlich Sabbatica
 
 ## So wird gerechnet
 
-1. **Benötigtes Guthaben** = (Kalendertage des FZA ÷ 7) × vertragliche Wochenstunden
+1. **Benötigtes Guthaben** = (Kalendertage des FZA ÷ 7) × bezahlte Wochenstunden im FZA
 2. **Guthaben pro Anspartag** = (vertragliche − bezahlte Wochenstunden) ÷ Arbeitstage pro Woche
 3. **Anspartage** = Arbeitstage der Ansparphase − Feiertage − 24.12./31.12. − Urlaub − Krankheitspuffer
 4. **Angespartes Guthaben** = Anspartage × Guthaben pro Anspartag
 5. **Saldo** = angespartes − benötigtes Guthaben
-6. **Gehaltsuntergrenze:** bezahlte Wochenstunden × 4,33 × Stundenlohn muss mindestens 633 € pro Monat ergeben
+6. **Gehaltsuntergrenze:** bezahlte Wochenstunden × 4,33 × Stundenlohn muss in der Ansparphase und im FZA jeweils mindestens 633 € pro Monat ergeben
+
+In der Ansparphase wird so weit reduziert, dass ein Guthaben X entsteht. Dieses Guthaben wird im FZA verteilt: Je weniger bezahlte Wochenstunden im FZA, desto mehr Tage reicht X.
 
 ### Annahmen
 
@@ -51,3 +53,38 @@ Ein Planungstool für einen Freizeitausgleich (FZA), umgangssprachlich Sabbatica
 ## Hinweis
 
 Der Planer ist eine Planungshilfe ohne Gewähr. Verbindlich sind Arbeitsvertrag, Betriebs- oder Dienstvereinbarung und die Abstimmung mit der Personalabteilung.
+
+## Entwicklung
+
+Der Planer bleibt bewusst **eine einzige Datei** (`index.html`), damit das Veröffentlichen einfach bleibt. Innen ist das Skript in Abschnitte gegliedert:
+
+| Abschnitt                  | Inhalt                                                                                                                                                                   |
+| -------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| 1. Kern (`#region core`)   | Regeln (`CONFIG`), Datumsfunktionen, Feiertage, Berechnung `compute(plan, heute)`, Ausrechnen, Teilen-Kodierung, Migration. Reine Funktionen ohne Zugriff auf die Seite. |
+| 2. Zustand und Verdrahtung | Startwerte, Laden/Speichern, Eingabefelder verbinden, Klick-Router                                                                                                       |
+| 3. Zustand                 | Hilfsfunktionen für Planung und Beispielwerte                                                                                                                            |
+| 4. Bausteine               | Icons, Datumsfeld, Datumsauswahl                                                                                                                                         |
+| 5. Darstellung             | alle `render…`-Funktionen                                                                                                                                                |
+| 6. Navigation              | Tabs, Sprünge, Meldungen                                                                                                                                                 |
+| 7. Aktionen                | Klick-Handler, über einen zentralen Router verteilt                                                                                                                      |
+| 8. Szenarien und Teilen    | Speichern von Varianten, Link-Teilen                                                                                                                                     |
+
+Regeln wie die Gehaltsuntergrenze oder die maximale FZA-Dauer stehen in `CONFIG` am Anfang des Kerns.
+
+### Tests
+
+```bash
+npm install
+npx playwright install chromium
+npm test                # Kern, Rechenergebnisse und Abläufe
+npm run test:visual     # Bildvergleich (lokal, braucht Python mit Pillow)
+```
+
+- `tests/core.test.mjs`: Unit-Tests für den Kern (Feiertage, Kalenderwochen, Monatsgrenzen, Berechnung, Link-Kodierung, Migration)
+- `tests/golden.mjs`: hält die sichtbaren Ergebnisse von 14 Planungsfällen fest (`tests/golden.json`)
+- `tests/interaction.mjs`: klickt die wichtigsten Abläufe durch
+- `tests/visual.mjs`: vergleicht Bildschirmfotos mit `tests/visual-ref/`
+
+Ändert sich ein Ergebnis gewollt, die Referenz mit `npm run golden:update` bzw. `npm run visual:update` neu schreiben und die Änderung prüfen.
+
+Bei jedem Push laufen die Tests automatisch über GitHub Actions (`.github/workflows/test.yml`).
